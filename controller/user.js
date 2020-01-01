@@ -1,9 +1,9 @@
 const router = require('express').Router();
-const coreDB = require('../service/core-api');
+const db = require('../service/firestore-adapter');
 
 
 router.get('/profile', async (req, res) => {
-    console.log(await coreDB.get('', {from: ['user']}).catch(console.error));
+    console.log(await db.get('', {from: ['user']}).catch(console.error));
 });
 
 router.post('/login', (req, res) => {

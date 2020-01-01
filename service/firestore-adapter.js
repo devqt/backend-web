@@ -1,42 +1,7 @@
-const { docRef, PROJECT_ID } = require('./firestore');
+const { docRef } = require('./firestore');
+const { PATH_API, OP_SET } = require('../common/server-constant');
 
-const path = `projects/${PROJECT_ID}/databases/(default)/documents/`;
-const OP_SET = [
-    {
-        key: '$or',
-        value: 'OR',
-        isComposite: true
-    },
-    {
-        key: '$and',
-        value: 'AND',
-        isComposite: true
-    },
-    {
-        key: '$lt',
-        value: 'LESS_THAN'
-    },
-    {
-        key: '$lte',
-        value: 'LESS_THAN_OR_EQUAL'
-    },
-    {
-        key: '$gt',
-        value: 'GREATER_THAN'
-    },
-    {
-        key: '$gte',
-        value: 'GREATER_THAN_OR_EQUAL'
-    },
-    {
-        key: '$eq',
-        value: 'EQUAL'
-    },
-    {
-        key: '$contain',
-        value: 'ARRAY_CONTAINS'
-    },
-];
+
 
 a = {
     $or: [
@@ -93,7 +58,7 @@ function handleWhereQuery(filter) {
     return handledW;
 }
 module.exports = {
-    get(srcPath, query) {
+    get(endPath, query) {
         let {select, from, where, orderBy, offset, limit} = query || {};
         from = from? from.map(e => ({collectionId: e})) : undefined;
         where = a
@@ -102,7 +67,7 @@ module.exports = {
         
         return docRef.runQuery(
             {
-                parent: path + srcPath,
+                parent: PATH_API + endPath,
                 requestBody: {
                     structuredQuery: {
                         select: { fields: select || [] },

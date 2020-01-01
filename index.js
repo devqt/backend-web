@@ -1,4 +1,5 @@
-const CONFIG = require('./common/server-constant')
+const {PORT, HOST} = require('./common/server-constant')
+// const {PORT, HOST} = {}
 const express = require('express');
 
 const userController = require('./controller/user');
@@ -9,7 +10,7 @@ const app = express();
 app.use('/users', userController);
 // app.use('sessions', bLogController);
 
-app.listen(CONFIG.PORT || 3000, CONFIG.HOST || '127.0.0.1', () => {
+app.listen(PORT || 3000, HOST || '127.0.0.1', () => {
     console.log('Running...');
     
 });
