@@ -4,7 +4,7 @@ module.exports = {
     PORT: 3000,
     GOOGLE_SCOPES: ['https://www.googleapis.com/auth/datastore', 'https://www.googleapis.com/auth/cloud-platform'],
     CREDENTIALS: serviceAccount,
-    PATH_API: `projects/${serviceAccount.project_id}/databases/(default)/documents/`,
+    PATH_API: `projects/${serviceAccount.project_id}/databases/(default)/documents`,
     OP_SET: [
         {
             key: '$or',
