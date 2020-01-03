@@ -1,4 +1,4 @@
-const { docRef } = require('./firestore');
+const { RestDocRef, AdminDbRef } = require('./firestore');
 const { PATH_API, OP_SET } = require('../common/server-constant');
 
 /** create a object value */
@@ -14,6 +14,20 @@ function handleToValueObj(value) {
             }
         }
     }
+    if (typeof value === 'object') {
+        let outVal = {
+            mapValue: {
+                fields: {}
+            }
+        }
+        for (let [key, val] of Object.entries(value)) {
+            outVal.mapValue.fields[key] = handleToValueObj(val);
+        }
+        return outVal;
+    }
+        
+        
+    
 }
 
 function handleFromValueObj(valueObj) {
@@ -24,6 +38,13 @@ function handleFromValueObj(valueObj) {
     if (type === 'integerValue') return parseInt(value);
     if (type === 'arrayValue') {
         return value.values.map(e => handleFromValueObj(e))
+    }
+    if (type === 'mapValue') {
+        let outVal = {}
+        for (let [key, val] of Object.entries(value.fields)) {
+            outVal[key] = handleFromValueObj(val);
+        }
+        return outVal;
     }
 }
 
@@ -65,92 +86,165 @@ function handleWhereQuery(filter) {
     return handledW;
 }
 
-function transferPostDataReqBody(data) {
+function transferReqBody(data) {
     for (let [key, value] of Object.entries(data)) {
         data[key] = handleToValueObj(value);
     }
     return data;
 }
 
+function transferPutDataForAdminDb(data, parentKey) {
+    let out;
+    if (typeof data === 'object' && data !== null) {
+        out = {};
+        for (let key in data) {
+            out = Object.assign(out, transferPutDataForAdminDb(data[key], parentKey ? parentKey + '.' + key : key));
+        }
+    } else {
+        out = {
+            [parentKey]: data
+        }
+    }
+    
+    return out;
+}
+
 function mapResponse(res, rej) {
     return (err, response) => {
-        console.log(response);
+        console.log({...response});
         err && rej(err);
+
         let data;
-        if (Array.isArray(data)) {
+
+        if (Array.isArray(response.data)) {
             data = response.data.map(e => {
                 let outE = {};
-                for ([key, value] of Object.entries(e.document.fields)) {
+                for ([key, value] of Object.entries(e.document.fields || {})) {
                     outE[key] = handleFromValueObj(value)
                 }
                 outE['_id'] = e.document.name.split('/').pop();
                 return outE;
             })
-        } else {
-            for ([key, value] of Object.entries(response.data.fields)) {
+        } else if (response.data instanceof Object) {
+            data = {};
+            for ([key, value] of Object.entries(response.data.fields || {})) {
                 data[key] = handleFromValueObj(value)
             }
-            data['_id'] = data.name.split('/').pop(); 
+            data['_id'] = response.data.name.split('/').pop(); 
         }
-        
-        response['data'] = data;
+        response.originData = response.data;
+        response.data = data;
         res(response);
     }
 }
 
+function mapResponseForAdminDb(res, rej) {
+    return [
+        (response) => {
+            res(response);
+        },
+        (err) => {
+            rej(err);
+        },
+
+    ]
+}
+
 module.exports = {
-    get(collection, query, options) {
-        let {select, from, where, orderBy, offset, limit} = query || {};
-        select = select ? {fields: select.map(_=>({'fieldPath': _}))} : undefined;
-        from = from? from.map(e => ({collectionId: e})) : [{collectionId: collection}];
-        where = {name:{$eq: 'quyjs'}}
-        where = handleWhereQuery(where);
-        
-        return new Promise((res, rej) => {
-            docRef.runQuery(
-                {
-                    parent: PATH_API,
-                    requestBody: {
-                        structuredQuery: {
-                            select: select,
-                            from: from,
-                            where: where,
-                            orderBy: orderBy,
-                            offset: offset,
-                            limit: limit,
+    AdminSDK: {
+        post(collection, data, options) {
+            data = data || {};
+            data = data = JSON.parse(JSON.stringify(data));
+            return new Promise((res, rej) => {
+                AdminDbRef.collection(collection).add(data).then(...mapResponseForAdminDb(res, rej));
+            })
+        },
+        put(collection, documentId, data, options) {
+            data = data || {};
+            data = JSON.parse(JSON.stringify(data));
+            return new Promise((res, rej) => {
+                AdminDbRef.collection(collection).doc(documentId).update(transferPutDataForAdminDb(data)).then(...mapResponseForAdminDb(res, rej))
+            });
+        },
+        delete(collection, documentId, options) {
+            return new Promise((res, rej) => {
+                AdminDbRef.collection(collection).doc(documentId).delete().then(...mapResponseForAdminDb(res, rej))
+            });
+        },
+    },
+    
+    Rest: {
+        get(collection, query, options) {
+            let { select, from, where, orderBy, offset, limit } = query || {};
+            select = select ? { fields: select.map(_ => ({ 'fieldPath': _ })) } : undefined;
+            from = from ? from.map(e => ({ collectionId: e })) : [{ collectionId: collection }];
+            where = { name: { $eq: 'quyjs' } }
+            where = handleWhereQuery(where);
+
+            return new Promise((res, rej) => {
+                RestDocRef.runQuery(
+                    {
+                        parent: PATH_API,
+                        requestBody: {
+                            structuredQuery: {
+                                select: select,
+                                from: from,
+                                where: where,
+                                orderBy: orderBy,
+                                offset: offset,
+                                limit: limit,
+                            }
+                        },
+                    },
+                    mapResponse(res, rej)
+                );
+            })
+        },
+
+        post(collection, data, options) {
+            data = data || {};
+            return new Promise((res, rej) => {
+                RestDocRef.createDocument(
+                    {
+                        parent: PATH_API,
+                        collectionId: collection,
+                        requestBody: {
+                            fields: transferReqBody(data)
                         }
                     },
-                }, 
-                mapResponse(res, rej)
-            );
-        })
-    },
+                    mapResponse(res, rej)
+                )
+            })
+        },
 
-    post(collection, data, options) {
-        data = data || {};
-        return new Promise((res, rej) => {
-            docRef.createDocument(
-                {
-                    parent: PATH_API,
-                    collectionId: collection,
-                    requestBody: {
-                        fields: transferPostDataReqBody(data)
-                    }
-                },
-                mapResponse(res, rej)
-            )
-        })
+        put(collection, documentId, data, options) {
+            data = data || {};
+            return new Promise((res, rej) => {
+                RestDocRef.patch(
+                    {
+                        name: `${PATH_API}/${collection}/${documentId}`,
+                        "mask.fieldPaths": [],
+                        "updateMask.fieldPaths": [],
+                        requestBody: {
+                            fields: transferReqBody(data)
+                        }
+                    },
+                    mapResponse(res, rej)
+                )
+            });
+        },
+
+        delete(collection, documentId, options) {
+            data = data || {};
+            return new Promise((res, rej) => {
+                RestDocRef.delete(
+                    {
+                        name: `${PATH_API}/${collection}/${documentId}`
+                    },
+                    mapResponse(res, rej)
+                )
+            });
+        },
     },
-    put(collection, data, options) {
-        data = data || {};
-        return docRef.patch(
-            {
-                parent: PATH_API,
-                collectionId: collection,
-                requestBody: {
-                    fields: transferPostDataReqBody(data)
-                }
-            }
-        )
-    },
+    
 }
