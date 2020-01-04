@@ -1,5 +1,5 @@
 const { RestDocRef, AdminDbRef } = require('./firestore');
-const { PATH_API, OP_SET } = require('../common/server-constant');
+const { PATH_API, OP_SET } = require('../common/constants/server-constant');
 
 /** create a object value */
 function handleToValueObj(value) {
@@ -178,7 +178,6 @@ module.exports = {
             let { select, from, where, orderBy, offset, limit } = query || {};
             select = select ? { fields: select.map(_ => ({ 'fieldPath': _ })) } : undefined;
             from = from ? from.map(e => ({ collectionId: e })) : [{ collectionId: collection }];
-            where = { name: { $eq: 'quyjs' } }
             where = handleWhereQuery(where);
 
             return new Promise((res, rej) => {

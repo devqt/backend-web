@@ -40,5 +40,11 @@ module.exports = {
             key: '$contain',
             value: 'ARRAY_CONTAINS'
         },
-    ]
+    ],
+    ERROR_MSG: {
+        SERVER_ERROR: {
+            code: 500,
+            message: 'Server Error'
+        }
+    }
 }

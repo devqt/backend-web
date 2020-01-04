@@ -1,4 +1,4 @@
-class User {
+class UserModel {
     user_id;
     password;
     email;
@@ -13,4 +13,13 @@ class User {
         this.address = entity.address;
     }
 }
-module.exports = {User};
+class LoginUserModel {
+    user_id;
+    password;
+    constructor (entity) {
+        entity || {};
+        this.user_id = entity.user_id;
+        this.password = entity.password;
+    }
+}
+module.exports = { UserModel, LoginUserModel };

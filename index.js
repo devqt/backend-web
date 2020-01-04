@@ -1,4 +1,4 @@
-const {PORT, HOST} = require('./common/server-constant');
+const {PORT, HOST} = require('./common/constants/server-constant');
 const bodyParser = require('body-parser');
 const express = require('express');
 
