@@ -1,5 +1,5 @@
 
-const { GOOGLE_SCOPES, CREDENTIALS } = require('../common/constants/server-constant');
+const { GOOGLE_SCOPES, CREDENTIALS } = require('../common/constants/server.constant');
 const { google } = require('googleapis');
 const admin = require('firebase-admin');
 

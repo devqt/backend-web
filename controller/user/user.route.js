@@ -1,33 +1,46 @@
+
 const router = require('express').Router();
+const jwt = require('jsonwebtoken');
 const clientDb = require('../../service/firestore-adapter');
-const { UserModel, LoginUserModel } = require('./user.model');
+const { checkAuth } = require('../../service/authentication');
+const { UserModel, LoginUserModel, ResponseUserModel } = require('./user.model');
 const vldSchema = require('./user.validate');
 const { ErrorMsg } = require('../../common/common.model');
-const { ERROR_MSG } = require('../../common/constants/server-constant');
+const { ERROR_MSG, SECRET_KEY } = require('../../common/constants/server.constant');
+const { mapBasicFilter } = require('../../common/helper');
 
-
-router.get('/profile', async (req, res) => {
-    console.log(await db.get('user', {}));
-});
 
 router.post('/login', async (req, res) => {
     let result = await login(req.params, req.body)
     .catch(err => {
-        res.status(err.code).send(err);
+        res.status(err.code || 500).send(err);
     });
     res.status(200).send(result);
     
 });
 async function login(params, body) {
     body = new LoginUserModel(body);
-    body = mapBodyForQueryFilter(body)
     let errorValid = vldSchema.login.validate(body).error;
     if (!errorValid) {
-        let result = await clientDb.Rest.get('user', body)
+        let result = await clientDb.Rest.get(
+            'user', {
+                where: mapBasicFilter(body)
+            }
+        )
         .catch(_ => ERROR_MSG.SERVER_ERROR);
 
-        if (result.data && result.data.length === 1) {
-            return { data: result.data[0] };
+        if (Array.isArray(result.data) && result.data.length === 1) {
+            let token = jwt.sign(
+                {
+                    user_id: result.data[0]['user_id'],
+                    _id: result.data[0]['_id'],
+                },
+                SECRET_KEY, 
+                {
+                    expiresIn: '1d'
+                }
+            );
+            return { token };
         } else {
             throw new ErrorMsg(401, 'Ten dang nhap hoac mat khau khong dung');
         }
@@ -35,13 +48,34 @@ async function login(params, body) {
     } else {
         throw new ErrorMsg(400, errorValid.details[0].message);
     }
+}
+
+router.get('/profile', checkAuth, async (req, res) => {
+    let result = await profile(req.middleAuth.userInfo)
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+});
+async function profile(userInfo) {
+    let result = await clientDb.AdminSDK.get('user', userInfo['_id'], {
+        select: Object.keys(new ResponseUserModel())
+    })
+        .catch(_ => ERROR_MSG.SERVER_ERROR);
+
+    if (result.data) {
+        return { data: result.data };
+    } else {
+        throw new ErrorMsg(401, 'Loi khi xac thuc nguoi dung.');
+    }
+        
     
 }
 
 router.post('/register', async (req, res) => {
     let result = await register(req.params, req.body)
     .catch(err => {
-        res.status(err.code).send(err);
+        res.status(err.code || 500).send(err);
     });
     res.status(200).send(result);
     
@@ -50,10 +84,24 @@ async function register(params, body) {
     body = new UserModel(body);
     let errorValid = vldSchema.register.validate(body).error;
     if (!errorValid) {
-        await clientDb.AdminSDK.post('user', body)
-        .catch(_ => ERROR_MSG.SERVER_ERROR)
+        let result = await clientDb.Rest.get(
+            'user', {
+                where: mapBasicFilter({
+                    user_id: body['user_id']
+                })
+            }
+        )
+        .catch(_ => ERROR_MSG.SERVER_ERROR);
 
-        return { ok: 1 };
+        if (Array.isArray(result.data) && result.data.length === 1) {
+            throw new ErrorMsg(400, 'Ten dang nhap da ton tai.');
+        } else {
+            await clientDb.AdminSDK.post('user', body)
+            .catch(_ => ERROR_MSG.SERVER_ERROR)
+
+            return { ok: 1 };
+        }
+        
     } else {
         throw new ErrorMsg(400, errorValid.details[0].message);
     }

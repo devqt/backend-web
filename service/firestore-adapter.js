@@ -1,5 +1,7 @@
+
 const { RestDocRef, AdminDbRef } = require('./firestore');
-const { PATH_API, OP_SET } = require('../common/constants/server-constant');
+const { DocumentSnapshot } = require('firebase-admin').firestore;
+const { PATH_API, OP_SET } = require('../common/constants/server.constant');
 
 /** create a object value */
 function handleToValueObj(value) {
@@ -56,7 +58,7 @@ function handleWhereQuery(filter) {
             handledW = filter.map(e => handleWhereQuery(e));
         } else {
             let [key, value] = Object.entries(filter)[0];
-            if (OP_SET.map(_=>_.key).includes(key)) {
+            if (OP_SET.map(_ => _.key).includes(key)) {
                 if (OP_SET.find(_ => _.key === key).isComposite) {
 
                     handledW = {
@@ -112,35 +114,47 @@ function transferPutDataForAdminDb(data, parentKey) {
 function mapResponse(res, rej) {
     return (err, response) => {
         console.log({...response});
-        err && rej(err);
+        if (err) {
+            rej(err);
+            return;
+        }
 
         let data;
-
         if (Array.isArray(response.data)) {
-            data = response.data.map(e => {
-                let outE = {};
-                for ([key, value] of Object.entries(e.document.fields || {})) {
-                    outE[key] = handleFromValueObj(value)
-                }
-                outE['_id'] = e.document.name.split('/').pop();
-                return outE;
-            })
+            if (response.data.length === 1 &&
+                !response.data[0].document) {
+                    /** do nothing */
+            } else {
+                data = response.data.map(e => {
+                    let outE = {};
+                    for ([key, value] of Object.entries(e && e.document && e.document.fields || {})) {
+                        outE[key] = handleFromValueObj(value)
+                    }
+                    outE['_id'] = e && e.document && e.document.name && e.document.name.split('/').pop();
+                    return outE;
+
+                })
+            }
         } else if (response.data instanceof Object) {
             data = {};
             for ([key, value] of Object.entries(response.data.fields || {})) {
                 data[key] = handleFromValueObj(value)
             }
-            data['_id'] = response.data.name.split('/').pop(); 
+            data['_id'] = response.data.name.split('/').pop();
         }
         response.originData = response.data;
         response.data = data;
         res(response);
     }
 }
-
 function mapResponseForAdminDb(res, rej) {
     return [
         (response) => {
+            if (response instanceof DocumentSnapshot) {
+                response.data = response.data();
+                res(response);
+                return;
+            }
             res(response);
         },
         (err) => {
@@ -152,6 +166,13 @@ function mapResponseForAdminDb(res, rej) {
 
 module.exports = {
     AdminSDK: {
+        get(collection, documentId, query, options) {
+            let {select} = query;
+            select = select || [];
+            return new Promise((res, rej) => {
+                AdminDbRef.collection(collection).doc(documentId).get().select(...select).then(...mapResponseForAdminDb(res, rej));
+            })
+        },
         post(collection, data, options) {
             data = data || {};
             data = data = JSON.parse(JSON.stringify(data));

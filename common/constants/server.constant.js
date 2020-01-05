@@ -1,3 +1,4 @@
+
 const serviceAccount = require('./angular-admin-1abb5-firebase-adminsdk-70n21-7f57f36c3f.json');
 module.exports = {
     HOST: 'localhost',
@@ -5,6 +6,7 @@ module.exports = {
     GOOGLE_SCOPES: ['https://www.googleapis.com/auth/datastore', 'https://www.googleapis.com/auth/cloud-platform'],
     CREDENTIALS: serviceAccount,
     PATH_API: `projects/${serviceAccount.project_id}/databases/(default)/documents`,
+    SECRET_KEY: 'A@123456',
     OP_SET: [
         {
             key: '$or',

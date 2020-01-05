@@ -1,4 +1,4 @@
-const {PORT, HOST} = require('./common/constants/server-constant');
+const {PORT, HOST} = require('./common/constants/server.constant');
 const bodyParser = require('body-parser');
 const express = require('express');
 
@@ -7,7 +7,8 @@ const bLogController = require('./controller/bidding-session/route');
 
 const app = express();
 app.use(bodyParser.json()) // for parsing application/json
-app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('test'));
 
 app.use('/users', userController);
 // app.use('sessions', bLogController);
