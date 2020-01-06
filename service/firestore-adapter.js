@@ -175,9 +175,19 @@ module.exports = {
         },
         post(collection, data, options) {
             data = data || {};
-            data = data = JSON.parse(JSON.stringify(data));
+            data = JSON.parse(JSON.stringify(data));
             return new Promise((res, rej) => {
                 AdminDbRef.collection(collection).add(data).then(...mapResponseForAdminDb(res, rej));
+            })
+        },
+        batchPost(collection, data, options) {
+            data = data || [];
+            let batch = AdminDbRef.batch();
+            data.forEach(element => {
+                batch.create(AdminDbRef.collection(collection).doc(), element);
+            });
+            return new Promise((res, rej) => {
+                batch.commit().then(...mapResponseForAdminDb(res, rej));
             })
         },
         put(collection, documentId, data, options) {

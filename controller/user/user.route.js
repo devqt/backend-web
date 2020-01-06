@@ -61,7 +61,7 @@ async function profile(userInfo) {
     let result = await clientDb.AdminSDK.get('user', userInfo['_id'], {
         select: Object.keys(new ResponseUserModel())
     })
-        .catch(_ => ERROR_MSG.SERVER_ERROR);
+    .catch(_ => ERROR_MSG.SERVER_ERROR);
 
     if (result.data) {
         return { data: result.data };
@@ -115,6 +115,15 @@ router.put('/update_profile', async (req, res) => {
         res.send(data.data);
     })
     .catch(console.log);
+    
+});
+
+router.post('/init', async (req, res) => {
+    let result = await clientDb.AdminSDK.batchPost(req.body.collection, req.body.data)
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
     
 });
 module.exports = router;
