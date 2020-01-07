@@ -1,6 +1,6 @@
 
 const { RestDocRef, AdminDbRef } = require('./firestore');
-const { DocumentSnapshot } = require('firebase-admin').firestore;
+const { QuerySnapshot, FieldPath, FieldValue } = require('firebase-admin').firestore;
 const { PATH_API, OP_SET } = require('../common/constants/server.constant');
 
 /** create a object value */
@@ -97,18 +97,22 @@ function transferReqBody(data) {
 
 function transferPutDataForAdminDb(data, parentKey) {
     let out;
+    if (data instanceof FieldValue) {
+        return {
+            [parentKey]: data
+        }
+    }
     if (typeof data === 'object' && data !== null) {
         out = {};
         for (let key in data) {
             out = Object.assign(out, transferPutDataForAdminDb(data[key], parentKey ? parentKey + '.' + key : key));
         }
-    } else {
-        out = {
-            [parentKey]: data
-        }
-    }
-    
-    return out;
+        return out;
+    } 
+
+    return {
+        [parentKey]: data
+    };
 }
 
 function mapResponse(res, rej) {
@@ -150,8 +154,11 @@ function mapResponse(res, rej) {
 function mapResponseForAdminDb(res, rej) {
     return [
         (response) => {
-            if (response instanceof DocumentSnapshot) {
-                response.data = response.data();
+            if (response instanceof QuerySnapshot) {
+                response.data = [];
+                let data = response.forEach((element, i) => {
+                    response.data.push({...element.data(), '_id': element['id']});
+                });
                 res(response);
                 return;
             }
@@ -167,10 +174,13 @@ function mapResponseForAdminDb(res, rej) {
 module.exports = {
     AdminSDK: {
         get(collection, documentId, query, options) {
-            let {select} = query;
+            let {select} = query || {};
             select = select || [];
             return new Promise((res, rej) => {
-                AdminDbRef.collection(collection).doc(documentId).get().select(...select).then(...mapResponseForAdminDb(res, rej));
+                select.length ?
+                AdminDbRef.collection(collection).where(FieldPath.documentId(), '==', documentId).select(...select).get().then(...mapResponseForAdminDb(res, rej))
+                :
+                AdminDbRef.collection(collection).where(FieldPath.documentId(), '==', documentId).get().then(...mapResponseForAdminDb(res, rej));
             })
         },
         post(collection, data, options) {
@@ -192,7 +202,6 @@ module.exports = {
         },
         put(collection, documentId, data, options) {
             data = data || {};
-            data = JSON.parse(JSON.stringify(data));
             return new Promise((res, rej) => {
                 AdminDbRef.collection(collection).doc(documentId).update(transferPutDataForAdminDb(data)).then(...mapResponseForAdminDb(res, rej))
             });

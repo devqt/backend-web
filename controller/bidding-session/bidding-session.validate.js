@@ -13,3 +13,12 @@ exports.putBiddingSession = Joi.object({
     .alphanum()
     .required(),
 })
+exports.createbidlog = Joi.object({
+    'bidamount': Joi
+    .number()
+    .required(),
+    'biddate': Joi
+    .string()
+    .required(),
+    'user': Joi.object()
+})

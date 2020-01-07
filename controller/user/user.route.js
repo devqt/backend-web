@@ -27,7 +27,7 @@ async function login(params, body) {
                 where: mapBasicFilter(body)
             }
         )
-        .catch(_ => ERROR_MSG.SERVER_ERROR);
+        .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
 
         if (Array.isArray(result.data) && result.data.length === 1) {
             let token = jwt.sign(
@@ -61,10 +61,10 @@ async function profile(userInfo) {
     let result = await clientDb.AdminSDK.get('user', userInfo['_id'], {
         select: Object.keys(new ResponseUserModel())
     })
-    .catch(_ => ERROR_MSG.SERVER_ERROR);
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
 
     if (result.data) {
-        return { data: result.data };
+        return { data: result.data[0] };
     } else {
         throw new ErrorMsg(401, 'Loi khi xac thuc nguoi dung.');
     }
@@ -91,13 +91,13 @@ async function register(params, body) {
                 })
             }
         )
-        .catch(_ => ERROR_MSG.SERVER_ERROR);
+        .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
 
         if (Array.isArray(result.data) && result.data.length === 1) {
             throw new ErrorMsg(400, 'Ten dang nhap da ton tai.');
         } else {
             await clientDb.AdminSDK.post('user', body)
-            .catch(_ => ERROR_MSG.SERVER_ERROR)
+            .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
             return { ok: 1 };
         }

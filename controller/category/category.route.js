@@ -21,7 +21,18 @@ async function getCategory(params, body) {
     let result = await clientDb.Rest.get(
         'category', {}
     )
-    .catch(_ => ERROR_MSG.SERVER_ERROR);
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    result.data = result.data && result.data.filter(e => {
+        let condition = true;
+        for (let key in query) {
+            if (key === 'name') {
+                condition = condition && e[key].includes(query[key]);
+                continue;
+            }
+            condition = condition && e[key] === query[key];
+        }
+        return condition;
+    });
     return {
         data: result.data
     }
@@ -37,9 +48,9 @@ router.get('/:id', async (req, res) => {
 });
 async function getCategoryByID(params, body) {
     let result = await clientDb.AdminSDK.get('category', params['id'])
-    .catch(_ => ERROR_MSG.SERVER_ERROR);
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
     return {
-        data: result.data
+        data: result.data[0]
     }
 }
 
@@ -56,7 +67,7 @@ async function postCategory(params, body) {
     let errorValid = vldSchema.postCategory.validate(body).error;
     if (!errorValid) {
         await clientDb.AdminSDK.post('category', body)
-        .catch(_ => ERROR_MSG.SERVER_ERROR)
+        .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
         return { ok: 1 };
     } else {
@@ -77,7 +88,7 @@ async function putCategory(params, body) {
     let errorValid = vldSchema.putCategory.validate(body).error;
     if (!errorValid) {  
         await clientDb.AdminSDK.put('category', params['id'], body)
-        .catch(_ => ERROR_MSG.SERVER_ERROR)
+        .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
         return { ok: 1 };
     } else {
