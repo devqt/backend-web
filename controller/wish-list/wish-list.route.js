@@ -55,6 +55,27 @@ async function getWishListByID(params, body) {
     }
 }
 
+router.get('/wishlists/currentuser', checkAuth, async (req, res) => {
+    let result = await getWishlist(req.middleAuth.userInfo['_id'])
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+    
+});
+async function getWishlist(userid) {
+    let result = await clientDb.Rest.get('bidding_session', {
+        where: {
+            'user._id': { $eq: userid }
+        }
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    if (result.data) result.data = result.data[0];
+    return {
+        data: result.data
+    }
+}
+
 router.post('/', checkAuth, async (req, res) => {
     let result = await postWishList(req.params, req.middleAuth.userInfo['_id'], req.body)
     .catch(err => {
@@ -94,13 +115,15 @@ async function postWishList(params, userid, body) {
                 ...body, 
                 'user': userResult.data[0],
                 'biddingsession': biddingSResult.data,
+                'biddingsession_id': [biddingSResult.data[0]['_id']],
             })
-            .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
+            .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
 
             return { ok: 1 };
         } else {
             await clientDb.AdminSDK.put('wish_list', wishListResult.data[0]['_id'], {
                 'biddingsession': FieldValue.arrayUnion(biddingSResult.data[0]),
+                'biddingsession_id': FieldValue.arrayUnion(biddingSResult.data[0]['_id']),
             })
         }
     } else {

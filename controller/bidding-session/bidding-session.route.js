@@ -1,6 +1,7 @@
 
 const router = require('express').Router();
 const { FieldValue } = require('firebase-admin').firestore;
+const { AdminDbRef } = require('../../service/firestore');
 const clientDb = require('../../service/firestore-adapter');
 const { checkAuth } = require('../../service/authentication');
 const { BiddingSessionModel, BidLogModel, ResultBidLogModel } = require('./bidding-session.model');
@@ -63,18 +64,29 @@ router.post('/', checkAuth, async (req, res) => {
     
 });
 async function postBiddingSession(params, userid, body) {
-    body = new BiddingSessionModel(body);
     let errorValid = vldSchema.postBiddingSession.validate(body).error;
     if (!errorValid) {
-        let userResult = await clientDb.AdminSDK.get('user', userid, {
-            select: ['_id', 'user_id', 'name']
-        })
+        let [userResult, categoryResult] = await Promise.all(
+            clientDb.AdminSDK.get('user', userid, {
+                select: ['_id', 'user_id', 'name']
+            }),
+            clientDb.AdminSDK.get('category', userid, {
+                select: ['_id', 'name']
+            }),
+        )
         .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
         if (!userResult.data[0]) {
             throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
         }
+        if (!categoryResult.data[0]) {
+            throw new ErrorMsg(403, 'Loai mat hang khong ton tai');
+        }
 
-        await clientDb.AdminSDK.post('bidding_session', {...body, 'user': userResult.data[0]})
+        await clientDb.AdminSDK.post('bidding_session', new BiddingSessionModel({
+            ...body, 
+            'user': userResult.data[0],
+            'category': categoryResult.data[0],
+        }))
         .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
         return { ok: 1 };
@@ -160,14 +172,50 @@ async function createbidlog(params, userid, body) {
         throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
     }
 
-    await clientDb.AdminSDK.put('bidding_session', params['id'], {
-        'biddinglog': FieldValue.arrayUnion({...body, 'user': userResult.data[0]}),
-        'biddinglog_userid': FieldValue.arrayUnion(userid),
-    })
-    .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
+    /** update document field */
+    docRef = clientDb.getDocRef('bidding_session', params['id']);
+    await AdminDbRef.runTransaction(t => {
+        return t.get(docRef).then(doc => {
+            doc = doc.data();
+            doc['biddinglog'] = doc['biddinglog'] || [];
+            doc['biddinglog_userid'] = doc['biddinglog_userid'] || [];
+            let currentbid = doc['biddinglog'].reduce((a, e) => {
+                if (e['bidamount'] > a) return e['bidamount'];
+                return a;
+            }, body['bidamount']);
 
-    return { ok: 1 };
-    
+            clientDb.AdminSDK.putWithTransaction(t, 'bidding_session', params['id'], {
+                'biddinglog': doc['biddinglog'].concat({...body, 'user': userResult.data[0]}),
+                'biddinglog_userid': doc['biddinglog_userid'].concat(userid),
+                'currentbid': currentbid
+            });
+        })
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+
+    /** transaction udpate reference */
+    await AdminDbRef.runTransaction(t => {
+        return t.get(docRef).then(async doc => {
+            doc = doc.data();
+            let wishListResult = await clientDb.Rest.get('wish_list', {
+                where : {
+                    'biddingsession_id': { $contain: params['id'] }
+                }
+            })
+            .catch(_ => { throw ERROR_MSG.SERVER_ERROR });
+            if (wishListResult.data) {
+                wishListResult.data.forEach(element => {
+                    let biddingSessionDoc = (element['biddingsession'] || []).find(e => e['_id'] === params['id']);
+                    clientDb.AdminSDK.putWithTransaction(t, 'wish_list', element['_id'], {
+                        'biddingsession': FieldValue.arrayRemove(biddingSessionDoc),
+                        'biddingsession': FieldValue.arrayUnion(doc),
+                    });
+                })
+                
+            }
+        })
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
 }
 
 module.exports = router;

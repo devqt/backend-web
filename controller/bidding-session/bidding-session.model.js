@@ -1,7 +1,7 @@
 
 class BiddingSessionModel {
     itemname;
-    categoriesid;
+    category;
     itemdescription;
     startdate;
     enddate;
@@ -11,10 +11,11 @@ class BiddingSessionModel {
     itemcondition;
     user;
     biddinglog;
+    currentbid;
     constructor (entity) {
         entity = entity || {};
         this.itemname = entity.itemname;
-        this.categoriesid = entity.categoriesid;
+        this.category = entity.category;
         this.itemdescription = entity.itemdescription;
         this.startdate = entity.startdate;
         this.enddate = entity.enddate;
@@ -24,6 +25,7 @@ class BiddingSessionModel {
         this.itemcondition = entity.itemcondition;
         this.user = entity.user;
         this.biddinglog = entity.biddinglog;
+        this.currentbid = entity.currentbid;
     }
 }
 class BidLogModel {

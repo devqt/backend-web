@@ -2,6 +2,7 @@
 const { PORT, HOST } = require('./common/constants/server.constant');
 const bodyParser = require('body-parser');
 const express = require('express');
+const cors = require('cors');
 
 const userController = require('./controller/user/user.route');
 const categoryController = require('./controller/category/category.route');
@@ -12,6 +13,7 @@ const app = express();
 app.use(bodyParser.json()) // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('test'));
+app.use(cors());
 
 app.use('/users', userController);
 app.use('/categories', categoryController);

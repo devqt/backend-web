@@ -22,17 +22,6 @@ async function getCategory(params, body) {
         'category', {}
     )
     .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
-    result.data = result.data && result.data.filter(e => {
-        let condition = true;
-        for (let key in query) {
-            if (key === 'name') {
-                condition = condition && e[key].includes(query[key]);
-                continue;
-            }
-            condition = condition && e[key] === query[key];
-        }
-        return condition;
-    });
     return {
         data: result.data
     }

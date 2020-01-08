@@ -39,7 +39,7 @@ function handleFromValueObj(valueObj) {
     if (type === 'stringValue') return value;
     if (type === 'integerValue') return parseInt(value);
     if (type === 'arrayValue') {
-        return value.values.map(e => handleFromValueObj(e))
+        return value.values && value.values.map(e => handleFromValueObj(e))
     }
     if (type === 'mapValue') {
         let outVal = {}
@@ -97,7 +97,8 @@ function transferReqBody(data) {
 
 function transferPutDataForAdminDb(data, parentKey) {
     let out;
-    if (data instanceof FieldValue) {
+    if (data instanceof FieldValue ||
+        Array.isArray(data)) {
         return {
             [parentKey]: data
         }
@@ -172,6 +173,9 @@ function mapResponseForAdminDb(res, rej) {
 }
 
 module.exports = {
+    getDocRef(collection, documentId) {
+        return AdminDbRef.collection(collection).doc(documentId);
+    },
     AdminSDK: {
         get(collection, documentId, query, options) {
             let {select} = query || {};
@@ -205,6 +209,10 @@ module.exports = {
             return new Promise((res, rej) => {
                 AdminDbRef.collection(collection).doc(documentId).update(transferPutDataForAdminDb(data)).then(...mapResponseForAdminDb(res, rej))
             });
+        },
+        putWithTransaction(transaction, collection, documentId, data, options) {
+            data = data || {};
+            transaction.update(AdminDbRef.collection(collection).doc(documentId), transferPutDataForAdminDb(data))
         },
         delete(collection, documentId, options) {
             return new Promise((res, rej) => {
