@@ -13,7 +13,7 @@ exports.register = Joi.object({
     .string()
     .alphanum(),
     'address': Joi.string(),
-})
+}).unknown();
 
 exports.login = Joi.object({
     'user_id': Joi

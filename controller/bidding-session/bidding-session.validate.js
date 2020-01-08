@@ -2,11 +2,33 @@ const Joi = require('@hapi/joi');
 
 
 exports.postBiddingSession = Joi.object({
-    'name': Joi
+    'itemname': Joi
     .string()
     .alphanum()
     .required(),
-})
+    'categoriesid': Joi
+    .string()
+    .required(),
+    'itemdescription': Joi
+    .string()
+    .required(),
+    'itemcondition': Joi
+    .string()
+    .alphanum()
+    .required(),
+    'startdate': Joi
+    .string()
+    .required(),
+    'enddate': Joi
+    .string()
+    .required(),
+    'startprice': Joi
+    .number()
+    .required(),
+    'minimumincreasebid': Joi
+    .number()
+    .required(),
+}).unknown();
 exports.putBiddingSession = Joi.object({
     'name': Joi
     .string()

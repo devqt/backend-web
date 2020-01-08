@@ -40,7 +40,7 @@ async function login(params, body) {
                     expiresIn: '1d'
                 }
             );
-            return { token };
+            return { data : {token} };
         } else {
             throw new ErrorMsg(401, 'Ten dang nhap hoac mat khau khong dung');
         }

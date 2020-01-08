@@ -27,10 +27,11 @@ async function getBiddingSession(query, body) {
         let condition = true;
         for (let key in query) {
             if (key === 'itemname') {
-                condition = condition && e[key].includes(query[key]);
-                continue;
+                condition = condition && e['itemname'].includes(query[key]);
             }
-            condition = condition && e[key] === query[key];
+            if (key === 'categoriesid') {
+                condition = condition && e['category'] && e['category']['_id'] === query[key];
+            }
         }
         return condition;
     });
@@ -66,14 +67,14 @@ router.post('/', checkAuth, async (req, res) => {
 async function postBiddingSession(params, userid, body) {
     let errorValid = vldSchema.postBiddingSession.validate(body).error;
     if (!errorValid) {
-        let [userResult, categoryResult] = await Promise.all(
+        let [userResult, categoryResult] = await Promise.all([
             clientDb.AdminSDK.get('user', userid, {
                 select: ['_id', 'user_id', 'name']
             }),
-            clientDb.AdminSDK.get('category', userid, {
+            clientDb.AdminSDK.get('category', body['categoriesid'], {
                 select: ['_id', 'name']
             }),
-        )
+        ])
         .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
         if (!userResult.data[0]) {
             throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
