@@ -28,6 +28,38 @@ class BiddingSessionModel {
         this.currentbid = entity.currentbid;
     }
 }
+
+class ResCurrentUserBiddingSessionModel {
+    itemname;
+    // category;
+    itemdescription;
+    startdate;
+    enddate;
+    startprice;
+    minimumincreasebid;
+    imagelink;
+    itemcondition;
+    user;
+    biddinglog;
+    currentbid;
+    bidcount;
+    constructor (entity) {
+        entity = entity || {};
+        this.itemname = entity.itemname;
+        this.category = entity.category;
+        this.itemdescription = entity.itemdescription;
+        this.startdate = entity.startdate;
+        this.enddate = entity.enddate;
+        this.startprice = entity.startprice;
+        this.minimumincreasebid = entity.minimumincreasebid;
+        this.imagelink = entity.imagelink;
+        this.itemcondition = entity.itemcondition;
+        this.user = entity.user;
+        this.biddinglog = entity.biddinglog;
+        this.currentbid = entity.currentbid;
+        this.bidcount = entity.bidcount;
+    }
+}
 class BidLogModel {
     bidamount;
     biddate;
@@ -54,4 +86,4 @@ class ResultBidLogModel {
     }
 }
 
-module.exports = { BiddingSessionModel, BidLogModel, ResultBidLogModel };
+module.exports = { BiddingSessionModel, BidLogModel, ResultBidLogModel, ResCurrentUserBiddingSessionModel };

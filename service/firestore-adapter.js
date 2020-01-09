@@ -118,7 +118,7 @@ function transferPutDataForAdminDb(data, parentKey) {
 
 function mapResponse(res, rej) {
     return (err, response) => {
-        console.log({...response});
+        // console.log({...response});
         if (err) {
             rej(err);
             return;

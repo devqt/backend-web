@@ -96,7 +96,10 @@ async function register(params, body) {
         if (Array.isArray(result.data) && result.data.length === 1) {
             throw new ErrorMsg(400, 'Ten dang nhap da ton tai.');
         } else {
-            await clientDb.AdminSDK.post('user', body)
+            await clientDb.AdminSDK.post('user', {
+                ...body,
+                ...!body['name'] && { 'name': body['user_id'] }
+            })
             .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
             return { ok: 1 };

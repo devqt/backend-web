@@ -55,7 +55,7 @@ async function getWishListByID(params, body) {
     }
 }
 
-router.get('/wishlists/currentuser', checkAuth, async (req, res) => {
+router.get('/all/currentuser', checkAuth, async (req, res) => {
     let result = await getWishlist(req.middleAuth.userInfo['_id'])
     .catch(err => {
         res.status(err.code || 500).send(err);
@@ -64,15 +64,16 @@ router.get('/wishlists/currentuser', checkAuth, async (req, res) => {
     
 });
 async function getWishlist(userid) {
-    let result = await clientDb.Rest.get('bidding_session', {
+    let result = await clientDb.Rest.get('wish_list', {
         where: {
             'user._id': { $eq: userid }
         }
     })
     .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
-    if (result.data) result.data = result.data[0];
+    let responseData;
+    if (result.data) responseData = result.data[0] && result.data[0]['biddingsession'];
     return {
-        data: result.data
+        data: responseData
     }
 }
 
@@ -88,17 +89,16 @@ async function postWishList(params, userid, body) {
     body['createddate'] = new Date().toISOString();
     let errorValid = vldSchema.postWishList.validate(body).error;
     if (!errorValid) {
-        
-        let userResult = await clientDb.AdminSDK.get('user', userid, {
-            select: ['_id', 'user_id', 'name']
-        })
+        let [userResult, biddingSResult] = await Promise.all([
+            clientDb.AdminSDK.get('user', userid, {
+                select: ['_id', 'user_id', 'name']
+            }),
+            clientDb.AdminSDK.get('bidding_session', body['sessionid'], {})
+        ])
         .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
         if (!userResult.data[0]) {
             throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
         }
-
-        let biddingSResult = await clientDb.AdminSDK.get('bidding_session', body['sessionid'], {})
-        .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
         if (!biddingSResult.data[0]) {
             throw new ErrorMsg(403, 'Phien dau gia khong ton tai');
         }

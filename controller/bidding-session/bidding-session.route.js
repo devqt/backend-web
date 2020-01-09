@@ -4,7 +4,7 @@ const { FieldValue } = require('firebase-admin').firestore;
 const { AdminDbRef } = require('../../service/firestore');
 const clientDb = require('../../service/firestore-adapter');
 const { checkAuth } = require('../../service/authentication');
-const { BiddingSessionModel, BidLogModel, ResultBidLogModel } = require('./bidding-session.model');
+const { BiddingSessionModel, BidLogModel, ResultBidLogModel, ResCurrentUserBiddingSessionModel } = require('./bidding-session.model');
 const vldSchema = require('./bidding-session.validate');
 const { ErrorMsg } = require('../../common/common.model');
 const { ERROR_MSG } = require('../../common/constants/server.constant');
@@ -51,9 +51,121 @@ router.get('/:id', async (req, res) => {
 async function getBiddingSessionByID(params, body) {
     let result = await clientDb.AdminSDK.get('bidding_session', params['id'])
     .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    if (result.data) {
+        if (result.data[0]['sessionstatus'] === 'PROGRESSING' && 
+            result.data[0]['enddate'] && new Date(result.data[0]['enddate']) <= new Date()) {
+            let bidLogWinner = (result.data[0]['biddinglog'] || []).reduce(
+                (res, element) => {
+                    if (element['bidamount'] > (res && res['biddamount'] || 0)) return element;
+                    return res;
+                }, undefined
+            );
+            if (bidLogWinner) {
+                await clientDb.AdminSDK.put('bidding_session', params['id'], {
+                    'sessionstatus': 'AWAIT_PAYMENT',
+                    'winner': bidLogWinner['user']
+                })
+                .catch(_ => { throw ERROR_MSG.SERVER_ERROR })
+            }
+            
+        }
+    }
     return {
         data: result.data[0]
     }
+}
+
+router.get('/all/currentuser', checkAuth, async (req, res) => {
+    let result = await getAllByCrUser(req.middleAuth.userInfo['_id'])
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+    
+});
+async function getAllByCrUser(userid) {
+    let result = await clientDb.Rest.get('bidding_session', {
+        where: {
+            'user._id': { $eq: userid }
+        }
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    return {
+        data: result.data && result.data.map(e => {
+            e['bidcount'] = e['biddinglog'] && e['biddinglog'].length
+            return new ResCurrentUserBiddingSessionModel(e)
+        })
+    }
+}
+
+router.get('/all/awaitpayment', checkAuth, async (req, res) => {
+    let result = await getAwaitPaymentByCrUser(req.middleAuth.userInfo['_id'])
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+    
+});
+async function getAwaitPaymentByCrUser(userid) {
+    let result = await clientDb.Rest.get('bidding_session', {
+        where: {
+            'sessionstatus': { $eq: 'AWAIT_PAYMENT' }
+        }
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    return {
+        data: result.data
+    }
+}
+
+router.get('/all/finished', checkAuth, async (req, res) => {
+    let result = await getFinishedByCrUser(req.middleAuth.userInfo['_id'])
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+    
+});
+async function getFinishedByCrUser(userid) {
+    let result = await clientDb.Rest.get('bidding_session', {
+        where: {
+            'sessionstatus': { $eq: 'FINISHED' }
+        }
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    return {
+        data: result.data
+    }
+}
+
+router.post('/:id/payment', checkAuth, async (req, res) => {
+    let result = await postPayment(req.params, req.middleAuth.userInfo['_id'], req.body)
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+    
+});
+async function postPayment(params, userid, body) {
+    let result = await clientDb.AdminSDK.get('bidding_session', params['id'])
+    .catch(_ => { throw ERROR_MSG.SERVER_ERROR });
+    if (!result.data) {
+        throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
+    }
+    if ((result.data[0]['winner'] || {})['_id'] !== userid) {
+        throw new ErrorMsg(403, 'Khong phai nguoi dung hien tai');
+    }
+    if (result.data[0]['sessionstatus'] !== 'AWAIT_PAYMENT') {
+        throw new ErrorMsg(403, 'Khong the thuc hien thanh toan duoc');
+    }
+
+    await clientDb.AdminSDK.put('bidding_session', params['id'], {
+        'sessionstatus': 'FINISHED'
+    })
+    .catch(_ => { throw ERROR_MSG.SERVER_ERROR })
+
+    return { ok: 1 };
+    
 }
 
 router.post('/', checkAuth, async (req, res) => {
@@ -85,8 +197,10 @@ async function postBiddingSession(params, userid, body) {
 
         await clientDb.AdminSDK.post('bidding_session', new BiddingSessionModel({
             ...body, 
+            'currentbid': body['startprice'],
             'user': userResult.data[0],
             'category': categoryResult.data[0],
+            'sessionstatus': 'PROGRESSING',
         }))
         .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
@@ -136,11 +250,11 @@ async function getBidLog(userid) {
     if (result.data) {
         bidLogAr = [];
         result.data.forEach(_session => {
-            for (let _bidlog of _session['biddinglog']) {
-                if (_bidlog['userid'] === userid) {
+            _session['biddinglog'].forEach(_bidlog => {
+                if (_bidlog['user']['_id'] === userid) {
                     bidLogAr.push({..._bidlog, 'biddingsession': _session})
                 }
-            }
+            })
         });
     }
     return {

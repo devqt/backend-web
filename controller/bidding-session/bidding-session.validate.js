@@ -4,7 +4,6 @@ const Joi = require('@hapi/joi');
 exports.postBiddingSession = Joi.object({
     'itemname': Joi
     .string()
-    .alphanum()
     .required(),
     'categoriesid': Joi
     .string()
@@ -43,4 +42,9 @@ exports.createbidlog = Joi.object({
     .string()
     .required(),
     'user': Joi.object()
+})
+exports.postPayment = Joi.object({
+    'sessionid': Joi
+    .string()
+    .required(),
 })
