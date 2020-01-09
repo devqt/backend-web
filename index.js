@@ -19,7 +19,13 @@ app.use('/users', userController);
 app.use('/categories', categoryController);
 app.use('/biddingsessions', biddingSessionController);
 app.use('/wishlists', wishListController);
-app.listen(PORT || 3000, HOST || '127.0.0.1', () => {
-    console.log('Running...');
-    
-});
+let port = process.env.PORT;
+if (port == null || port == "") {
+    app.listen(PORT || 3000, HOST || '127.0.0.1', () => {
+        console.log('Running...');
+        
+    });
+} else {
+    app.listen(port);
+}
+
