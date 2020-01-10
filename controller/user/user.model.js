@@ -30,12 +30,18 @@ class ResponseUserModel {
     email;
     name;
     address;
+    phone;
+    wallet;
+    vpoint;
     constructor (entity) {
         entity = entity || {};
         this.user_id = entity.user_id;
         this.email = entity.email;
         this.name = entity.name;
         this.address = entity.address;
+        this.phone = entity.phone;
+        this.wallet = entity.wallet;
+        this.vpoint = entity.vpoint;
     }
 }
 module.exports = { UserModel, LoginUserModel, ResponseUserModel };

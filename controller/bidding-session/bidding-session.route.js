@@ -147,21 +147,38 @@ router.post('/:id/payment', checkAuth, async (req, res) => {
     
 });
 async function postPayment(params, userid, body) {
-    let result = await clientDb.AdminSDK.get('bidding_session', params['id'])
-    .catch(_ => { throw ERROR_MSG.SERVER_ERROR });
-    if (!result.data) {
+    let [userResult, bsResult] = await Promise.all([
+        clientDb.AdminSDK.get('user', userid, {
+            select: ['_id', 'user_id', 'name', 'wallet']
+        }),
+        await clientDb.AdminSDK.get('bidding_session', params['id'])
+    ])
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    if (!userResult.data[0]) {
         throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
     }
-    if ((result.data[0]['winner'] || {})['_id'] !== userid) {
+    if (!bsResult.data) {
+        throw new ErrorMsg(403, 'Nguoi dung khong ton tai');
+    }
+    if ((bsResult.data[0]['winner'] || {})['_id'] !== userid) {
         throw new ErrorMsg(403, 'Khong phai nguoi dung hien tai');
     }
-    if (result.data[0]['sessionstatus'] !== 'AWAIT_PAYMENT') {
+    if (bsResult.data[0]['sessionstatus'] !== 'AWAIT_PAYMENT') {
         throw new ErrorMsg(403, 'Khong the thuc hien thanh toan duoc');
     }
+    if (userResult.data[0]['wallet'] < bsResult.data[0]['currentbid']) {
+        throw new ErrorMsg(403, 'So tien cua ban khong du thuc hien giao dich');
+    }
 
-    await clientDb.AdminSDK.put('bidding_session', params['id'], {
+    let batch = AdminDbRef.batch();
+    batch.update(clientDb.getDocRef('bidding_session', params['id']), {
         'sessionstatus': 'FINISHED'
-    })
+    });
+    batch.update(clientDb.getDocRef('user', userid), {
+        'wallet': FieldValue.increment(-bsResult.data[0]['currentbid']),
+        'vpoint': FieldValue.increment(1)
+    });
+    await batch.commit()
     .catch(_ => { throw ERROR_MSG.SERVER_ERROR })
 
     return { ok: 1 };

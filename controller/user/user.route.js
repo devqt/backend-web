@@ -68,8 +68,21 @@ async function profile(userInfo) {
     } else {
         throw new ErrorMsg(401, 'Loi khi xac thuc nguoi dung.');
     }
-        
-    
+}
+
+router.get('/:id', async (req, res) => {
+    let result = await getById(req.params['id'])
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
+});
+async function getById(userid) {
+    let result = await clientDb.AdminSDK.get('user', userid, {
+        select: Object.keys(new ResponseUserModel())
+    })
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    return { data: result.data && result.data[0] };
 }
 
 router.post('/register', async (req, res) => {
@@ -98,6 +111,8 @@ async function register(params, body) {
         } else {
             await clientDb.AdminSDK.post('user', {
                 ...body,
+                'wallet': 50000000,
+                'vpoint': 0,
                 ...!body['name'] && { 'name': body['user_id'] }
             })
             .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
