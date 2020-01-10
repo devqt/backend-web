@@ -52,7 +52,7 @@ async function getBiddingSessionByID(params, body) {
     let result = await clientDb.AdminSDK.get('bidding_session', params['id'])
     .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
     if (result.data) {
-        if (result.data[0]['sessionstatus'] === 'PROGRESSING' && 
+        if (result.data[0]['sessionstatus'] === 'IN_PROGRESS' && 
             result.data[0]['enddate'] && new Date(result.data[0]['enddate']) <= new Date()) {
             let bidLogWinner = (result.data[0]['biddinglog'] || []).reduce(
                 (res, element) => {
@@ -217,7 +217,7 @@ async function postBiddingSession(params, userid, body) {
             'currentbid': body['startprice'],
             'user': userResult.data[0],
             'category': categoryResult.data[0],
-            'sessionstatus': 'PROGRESSING',
+            'sessionstatus': 'IN_PROGRESS',
         }))
         .catch(_ => {throw ERROR_MSG.SERVER_ERROR})
 
@@ -309,6 +309,12 @@ async function createbidlog(params, userid, body) {
     await AdminDbRef.runTransaction(t => {
         return t.get(docRef).then(doc => {
             doc = doc.data();
+            if (!doc) {
+                throw new ErrorMsg(403, 'Bai dang khong ton tai');
+            }
+            if (doc['currentbid'] + doc['minimumincreasebid'] > body['bidamount']) {
+                throw new ErrorMsg(403, 'Tra gia thap hon gia hien tai cho phep');
+            }
             doc['biddinglog'] = doc['biddinglog'] || [];
             doc['biddinglog_userid'] = doc['biddinglog_userid'] || [];
             let currentbid = doc['biddinglog'].reduce((a, e) => {
@@ -323,12 +329,12 @@ async function createbidlog(params, userid, body) {
             });
         })
     })
-    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    .catch(_ => {throw _});
 
     /** transaction udpate reference */
     await AdminDbRef.runTransaction(t => {
-        return t.get(docRef).then(async doc => {
-            doc = doc.data();
+        return t.get(clientDb.getDocRef('bidding_session', params['id'])).then(async doc => {
+            doc = {...doc.data(), _id: doc.id};
             let wishListResult = await clientDb.Rest.get('wish_list', {
                 where : {
                     'biddingsession_id': { $contain: params['id'] }
@@ -340,6 +346,10 @@ async function createbidlog(params, userid, body) {
                     let biddingSessionDoc = (element['biddingsession'] || []).find(e => e['_id'] === params['id']);
                     clientDb.AdminSDK.putWithTransaction(t, 'wish_list', element['_id'], {
                         'biddingsession': FieldValue.arrayRemove(biddingSessionDoc),
+                        // 'biddingsession': FieldValue.arrayUnion(doc),
+                    });
+                    clientDb.AdminSDK.putWithTransaction(t, 'wish_list', element['_id'], {
+                        // 'biddingsession': FieldValue.arrayRemove(biddingSessionDoc),
                         'biddingsession': FieldValue.arrayUnion(doc),
                     });
                 })

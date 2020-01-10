@@ -3,7 +3,7 @@ const router = require('express').Router();
 const jwt = require('jsonwebtoken');
 const clientDb = require('../../service/firestore-adapter');
 const { checkAuth } = require('../../service/authentication');
-const { UserModel, LoginUserModel, ResponseUserModel } = require('./user.model');
+const { UserModel, LoginUserModel, ResponseUserModel, UpdateUserModel } = require('./user.model');
 const vldSchema = require('./user.validate');
 const { ErrorMsg } = require('../../common/common.model');
 const { ERROR_MSG, SECRET_KEY } = require('../../common/constants/server.constant');
@@ -126,15 +126,20 @@ async function register(params, body) {
     
 }
 
-router.put('/update_profile', async (req, res) => {
-    clientDb.AdminSDK.put('user', 'LhoobRrOG0MHLnxkEnna',  req.body)
-    .then(data => {
-        console.log(data);
-        res.send(data.data);
-    })
-    .catch(console.log);
-    
+router.put('/update_profile', checkAuth, async (req, res) => {
+    let result = await update_profile(req.middleAuth.userInfo._id, req.body)
+    .catch(err => {
+        res.status(err.code || 500).send(err);
+    });
+    res.status(200).send(result);
 });
+async function update_profile(userid, body) {
+    await clientDb.AdminSDK.put('user', userid, new UpdateUserModel(body))
+    .catch(_ => {throw ERROR_MSG.SERVER_ERROR});
+    return {
+        ok: 1
+    }
+}
 
 router.post('/init', async (req, res) => {
     let result = await clientDb.AdminSDK.batchPost(req.body.collection, req.body.data)

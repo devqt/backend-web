@@ -24,6 +24,17 @@ class LoginUserModel {
         this.password = entity.password;
     }
 }
+class UpdateUserModel {
+    name;
+    phone;
+    address;
+    constructor (entity) {
+        entity = entity || {};
+        this.name = entity.name;
+        this.phone = entity.phone;
+        this.address = entity.address;
+    }
+}
 
 class ResponseUserModel {
     user_id;
@@ -44,4 +55,4 @@ class ResponseUserModel {
         this.vpoint = entity.vpoint;
     }
 }
-module.exports = { UserModel, LoginUserModel, ResponseUserModel };
+module.exports = { UserModel, LoginUserModel, ResponseUserModel, UpdateUserModel };
